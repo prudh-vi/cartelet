@@ -41,6 +41,7 @@ dependencies:
   bonsoir: ^6.0.1
   web_socket_channel: ^3.0.3
   mobile_scanner: ^7.3.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
