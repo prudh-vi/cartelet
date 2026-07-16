@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'clipboard/clipboard_receiver.dart';
+import 'clipboard/mac_clipboard_manager.dart';
 import 'connection/device_connection.dart';
 import 'mdns/mdns_discovery.dart';
 import 'ui/file_browser_screen.dart';
@@ -101,7 +101,7 @@ class MacHomeScreen extends StatefulWidget {
 class _MacHomeScreenState extends State<MacHomeScreen> {
   final DeviceConnection _connection = DeviceConnection();
   final MdnsDiscovery _discovery = MdnsDiscovery();
-  ClipboardReceiver? _clipboardReceiver;
+  MacClipboardManager? _clipboardManager;
 
   String _status = 'Disconnected';
   String? _connectedIp;
@@ -137,8 +137,9 @@ class _MacHomeScreenState extends State<MacHomeScreen> {
           
           // Authenticate with token if needed (omitted for brevity)
           
-          // Start receiving clipboard updates
-          _clipboardReceiver = ClipboardReceiver(_connection);
+          // Start syncing clipboard
+          _clipboardManager = MacClipboardManager(_connection);
+          _clipboardManager!.init();
         });
       }
     });

@@ -10,7 +10,36 @@ class ClipboardManager extends ClipboardListener {
   final CarteletWebSocketServer _server;
   String _lastClipboardContent = '';
 
-  ClipboardManager(this._server);
+  ClipboardManager(this._server) {
+    final existingHandler = _server.onMessageReceived;
+    _server.onMessageReceived = (message, sender) {
+      if (existingHandler != null) {
+        existingHandler(message, sender);
+      }
+      _handleIncomingMessage(message);
+    };
+  }
+
+  void _handleIncomingMessage(dynamic message) {
+    try {
+      final data = jsonDecode(message);
+      if (data['type'] == 'clipboard' && data['content'] != null) {
+        final text = data['content'] as String;
+        _setLocalClipboard(text);
+      }
+    } catch (e) {
+      print('Failed to parse clipboard message on Android: $e');
+    }
+  }
+
+  Future<void> _setLocalClipboard(String text) async {
+    final currentData = await Clipboard.getData(Clipboard.kTextPlain);
+    if (currentData?.text != text) {
+      _lastClipboardContent = text;
+      await Clipboard.setData(ClipboardData(text: text));
+      print('Android clipboard updated from Mac sync.');
+    }
+  }
 
   /// Initializes the clipboard watcher.
   void init() {

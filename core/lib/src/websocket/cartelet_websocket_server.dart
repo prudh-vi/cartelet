@@ -45,11 +45,14 @@ class CarteletWebSocketServer {
     print('WebSocket Server listening on port ${_server?.port}');
   }
 
+  // Callback for external classes to listen to incoming messages
+  Function(dynamic message, WebSocketChannel sender)? onMessageReceived;
+
   /// Handles incoming messages.
-  /// For now, it just prints them. We can expand this to handle specific actions 
-  /// like clipboard sync or file transfer requests.
   void _onMessageReceived(dynamic message, WebSocketChannel sender) {
-    // TODO: Implement message routing (e.g., parse JSON and dispatch events)
+    if (onMessageReceived != null) {
+      onMessageReceived!(message, sender);
+    }
   }
 
   /// Broadcasts a [message] to all connected clients.
