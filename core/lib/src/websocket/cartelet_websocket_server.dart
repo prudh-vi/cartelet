@@ -16,7 +16,7 @@ class CarteletWebSocketServer {
   Future<void> start({int port = 8080}) async {
     // webSocketHandler comes from shelf_web_socket. It upgrades HTTP requests
     // to WebSocket connections automatically.
-    final handler = webSocketHandler((WebSocketChannel webSocket) {
+    final handler = webSocketHandler((webSocket, subprotocol) {
       // Keep track of connected clients to broadcast messages later if needed.
       _clients.add(webSocket);
       print('Client connected. Total clients: ${_clients.length}');
