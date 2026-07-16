@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Manages the WebSocket connection to the Android device.
+/// Manages the WebSocket connection to the Android device with auto-reconnect support.
 class DeviceConnection {
   WebSocketChannel? _channel;
   
@@ -9,9 +10,24 @@ class DeviceConnection {
   Function(Map<String, dynamic>)? onMessageReceived;
   // Callback when the connection is closed
   Function()? onDisconnected;
+  // Callback when reconnected
+  Function()? onReconnected;
+
+  String? _lastIp;
+  int? _lastPort;
+  bool _isIntentionalDisconnect = false;
+  Timer? _reconnectTimer;
+  
+  // Reconnect settings
+  final Duration reconnectInterval = const Duration(seconds: 5);
 
   /// Connects to the Android device at the given [ip] and [port].
   Future<void> connect(String ip, int port) async {
+    _lastIp = ip;
+    _lastPort = port;
+    _isIntentionalDisconnect = false;
+    _reconnectTimer?.cancel();
+    
     final uri = Uri.parse('ws://$ip:$port');
     print('Attempting to connect to $uri...');
     
@@ -31,21 +47,39 @@ class DeviceConnection {
             }
           }
         },
-        onDone: () {
-          print('Disconnected from Android device.');
-          if (onDisconnected != null) onDisconnected!();
-          _channel = null;
-        },
+        onDone: _handleDisconnect,
         onError: (error) {
           print('WebSocket Error: $error');
-          if (onDisconnected != null) onDisconnected!();
-          _channel = null;
+          _handleDisconnect();
         },
       );
       print('Connected to Android device successfully.');
+      if (onReconnected != null) onReconnected!();
     } catch (e) {
       print('Failed to connect to Android device: $e');
+      _scheduleReconnect();
     }
+  }
+
+  void _handleDisconnect() {
+    print('Disconnected from Android device.');
+    _channel = null;
+    if (onDisconnected != null) onDisconnected!();
+    
+    if (!_isIntentionalDisconnect) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_isIntentionalDisconnect || _lastIp == null || _lastPort == null) return;
+    
+    print('Scheduling reconnect in ${reconnectInterval.inSeconds} seconds...');
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(reconnectInterval, () {
+      print('Attempting to auto-reconnect...');
+      connect(_lastIp!, _lastPort!);
+    });
   }
 
   /// Sends a message to the Android device.
@@ -57,8 +91,10 @@ class DeviceConnection {
     }
   }
 
-  /// Disconnects from the device.
+  /// Disconnects from the device intentionally and stops auto-reconnect.
   void disconnect() {
+    _isIntentionalDisconnect = true;
+    _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;
   }
