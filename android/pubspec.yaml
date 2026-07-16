@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   bonsoir: ^6.0.1
   qr_flutter: ^4.1.0
+  clipboard_watcher: ^0.3.0
+  core:
+    path: ../core
 
 dev_dependencies:
   flutter_test:
