@@ -2,52 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'clipboard/clipboard_receiver.dart';
+import 'connection/device_connection.dart';
+import 'mdns/mdns_discovery.dart';
+import 'ui/file_browser_screen.dart';
+import 'ui/qr_scanner_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize window_manager to control the window
   await windowManager.ensureInitialized();
   
-  // Set up the window to be hidden initially
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(400, 600),
+    size: Size(800, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: true,
     titleBarStyle: TitleBarStyle.hidden,
   );
   
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    // We intentionally don't show the window on startup to keep it in the background
-    // until the user clicks the tray icon.
-  });
-
-  // Initialize the system tray
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {});
   await _initSystemTray();
 
   runApp(const CarteletMacApp());
 }
 
 Future<void> _initSystemTray() async {
-  await trayManager.setIcon(
-    // A placeholder icon - normally you'd use a macOS specific icon in the Assets folder
-    // Note: Since we haven't added an image asset yet, using a system icon might crash
-    // if not configured properly, but trayManager works fine with basic strings on some platforms
-    // For now we'll set a basic setup.
-    'assets/images/tray_icon.png', // We'll need to create this later or just leave it empty if it crashes
-  );
+  // Use a simple system tray icon setup.
+  await trayManager.setIcon('assets/images/tray_icon.png');
   
   Menu menu = Menu(
     items: [
-      MenuItem(
-        key: 'show_window',
-        label: 'Open Cartelet',
-      ),
+      MenuItem(key: 'show_window', label: 'Open Cartelet'),
       MenuItem.separator(),
-      MenuItem(
-        key: 'exit_app',
-        label: 'Quit',
-      ),
+      MenuItem(key: 'exit_app', label: 'Quit'),
     ],
   );
   
@@ -76,7 +64,6 @@ class _CarteletMacAppState extends State<CarteletMacApp> with TrayListener {
 
   @override
   void onTrayIconMouseDown() {
-    // Show window when tray icon is clicked
     windowManager.show();
     windowManager.focus();
   }
@@ -97,10 +84,97 @@ class _CarteletMacAppState extends State<CarteletMacApp> with TrayListener {
       title: 'Cartelet Mac',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text('Cartelet Mac is running in the menubar.'),
+      home: const MacHomeScreen(),
+    );
+  }
+}
+
+class MacHomeScreen extends StatefulWidget {
+  const MacHomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<MacHomeScreen> createState() => _MacHomeScreenState();
+}
+
+class _MacHomeScreenState extends State<MacHomeScreen> {
+  final DeviceConnection _connection = DeviceConnection();
+  final MdnsDiscovery _discovery = MdnsDiscovery();
+  ClipboardReceiver? _clipboardReceiver;
+
+  String _status = 'Disconnected';
+  String? _connectedIp;
+
+  void _startPairingFlow() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => QrScannerScreen(
+          onPairingDataScanned: (name, port, token) {
+            setState(() {
+              _status = 'Discovering $name on network...';
+            });
+            _discoverAndConnect(name, port, token);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _discoverAndConnect(String expectedName, int port, String token) {
+    _discovery.startDiscovery((service) {
+      if (service.name == expectedName && service.ip != null) {
+        _discovery.stopDiscovery();
+        final ip = service.ip!;
+        
+        setState(() {
+          _status = 'Connecting to $ip:$port...';
+          _connectedIp = ip;
+        });
+
+        _connection.connect(ip, port).then((_) {
+          setState(() => _status = 'Connected to $expectedName');
+          
+          // Authenticate with token if needed (omitted for brevity)
+          
+          // Start receiving clipboard updates
+          _clipboardReceiver = ClipboardReceiver(_connection);
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cartelet for Mac')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Status: $_status', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Pair via QR Code'),
+              onPressed: _connectedIp == null ? _startPairingFlow : null,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.folder),
+              label: const Text('Browse Android Files'),
+              onPressed: _connectedIp == null ? null : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => FileBrowserScreen(
+                      ip: _connectedIp!,
+                      port: 8081, // Default file server port on Android
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
