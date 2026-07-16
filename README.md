@@ -1,6 +1,6 @@
 # Cartelet
 
-Cartelet is an open-source wireless bridge between Android and Mac. Think of it as a universal OnePlus Connect that works for ALL Android phones. It allows for seamless clipboard synchronization and file browsing between your Android device and your Mac via a local network connection.
+Cartelet is an open-source wireless bridge between Android and Mac. Think of it as a universal O+ Connect that works for ALL Android phones. It allows for seamless clipboard synchronization and file browsing between your Android device and your Mac via a local network connection.
 
 ## Features
 - **Zero-Config Pairing**: Just scan a QR code from your Mac to instantly pair with your Android device via mDNS (Bonjour).
